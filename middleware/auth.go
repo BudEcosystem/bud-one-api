@@ -1,15 +1,21 @@
 package middleware
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"strings"
+
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/songquanpeng/one-api/common/blacklist"
+	"github.com/songquanpeng/one-api/common/config"
 	"github.com/songquanpeng/one-api/common/ctxkey"
+	"github.com/songquanpeng/one-api/common/logger"
 	"github.com/songquanpeng/one-api/common/network"
 	"github.com/songquanpeng/one-api/model"
-	"net/http"
-	"strings"
+	"gorm.io/gorm"
 )
 
 func authHelper(c *gin.Context, minRole int) {
@@ -92,6 +98,9 @@ func TokenAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 		key := c.Request.Header.Get("Authorization")
+
+		logger.Info(c, fmt.Sprintf("Token Auth Middleware key : %s", key))
+
 		key = strings.TrimPrefix(key, "Bearer ")
 		key = strings.TrimPrefix(key, "sk-")
 		parts := strings.Split(key, "-")
@@ -164,4 +173,67 @@ func shouldCheckModel(c *gin.Context) bool {
 		return true
 	}
 	return false
+}
+
+func ApiKeyAuth() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		ctx := c.Request.Context()
+		key := c.Request.Header.Get("Api-Key")
+
+		logger.Info(c, fmt.Sprintf("Auth Middleware api key : %s", key))
+
+		if key != "" {
+			// Fetch the initial root access token from environment variables
+			initialRootAccessToken := os.Getenv("INITIAL_ROOT_ACCESS_TOKEN")
+			if initialRootAccessToken == "" {
+				abortWithMessage(c, http.StatusInternalServerError, "Initial root access token not set in environment variables")
+				return
+			}
+
+			// Fetch the initial root token from environment variables
+			initialRootToken := os.Getenv("INITIAL_ROOT_TOKEN")
+			if initialRootToken == "" {
+				abortWithMessage(c, http.StatusInternalServerError, "Initial root token not set in environment variables")
+				return
+			}
+
+			// Fetch or create the channel by key
+			channel, err := model.FetchChannelByKey(key)
+
+			// if channel not found
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					// Channel does not exist in the database
+					logger.Info(ctx, "Channel not found")
+					// Create channel
+					baseURL := ""
+					other := ""
+					channel.Name = "One-API-Channel"
+					channel.BaseURL = &baseURL
+					channel.Config = "{\"region\":\"\",\"sk\":\"\",\"ak\":\"\",\"user_id\":\"\",\"vertex_ai_project_id\":\"\",\"vertex_ai_adc\":\"\"}"
+					channel.Other = &other
+					channel.Type = config.ChannelType
+					channel.Models = config.ChannelModel
+					err = channel.Insert()
+					if err != nil {
+						abortWithMessage(c, http.StatusInternalServerError, err.Error())
+						return
+					}
+				} else {
+					logger.Error(ctx, fmt.Sprintf("Error fetching channel : %s", err.Error()))
+					abortWithMessage(c, http.StatusInternalServerError, err.Error())
+					return
+				}
+			}
+
+			// Create the root token
+			rootToken := fmt.Sprintf("sk-%s-%d", initialRootToken, channel.Id)
+
+			// Add the root token as Authorization bearer token to the request's header
+			c.Request.Header.Set("Authorization", "Bearer "+rootToken)
+
+		}
+		// Call the next handler
+		c.Next()
+	}
 }

@@ -1,12 +1,13 @@
 package config
 
 import (
-	"github.com/songquanpeng/one-api/common/env"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/songquanpeng/one-api/common/env"
 
 	"github.com/google/uuid"
 )
@@ -92,6 +93,9 @@ var ApproximateTokenEnabled = false
 var RetryTimes = 0
 
 var RootUserEmail = ""
+
+var ChannelType = env.Int("CHANNEL_TYPE", 0)
+var ChannelModel = env.String("CHANNEL_MODEL", "")
 
 var IsMasterNode = os.Getenv("NODE_TYPE") != "slave"
 

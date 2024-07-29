@@ -1,0 +1,31 @@
+# .air.toml
+
+[build]
+# Command to build the Go project
+cmd = "go build -ldflags '-s -w' -o one-api"
+# The output binary from the build command
+bin = "one-api"
+# The directory to which the output binary will be written
+output_dir = "."
+# Do not overwrite the binary if the build fails
+no_copy = true
+
+[run]
+# Command to run the built binary
+cmd = "./one-api --port 3000 --log-dir ./logs"
+
+# Directory watching configuration
+[watch]
+# Directories to watch for changes
+dirs = ["."]
+# File extensions to watch for changes
+extensions = ["go"]
+# Files or directories to exclude from watching
+exclude_dirs = ["./logs", "./vendor"]
+
+# Logging configuration
+[log]
+# Log file for air
+file = "./logs/air.log"
+# Log level for air
+level = "debug"

@@ -77,6 +77,7 @@ func Relay(c *gin.Context) {
 		if channel.Id == lastFailedChannelId {
 			continue
 		}
+		// SetupContextForSelectedChannel is responsible for replacing one-api token with channel api-key
 		middleware.SetupContextForSelectedChannel(c, channel, originalModel)
 		requestBody, err := common.GetRequestBody(c)
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))

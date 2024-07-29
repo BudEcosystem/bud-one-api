@@ -221,3 +221,11 @@ func DeleteDisabledChannel() (int64, error) {
 	result := DB.Where("status = ? or status = ?", ChannelStatusAutoDisabled, ChannelStatusManuallyDisabled).Delete(&Channel{})
 	return result.RowsAffected, result.Error
 }
+
+func FetchChannelByKey(key string) (*Channel, error) {
+	channel := Channel{Key: key}
+	var err error = nil
+	err = DB.First(&channel, "key = ?", key).Error
+	return &channel, err
+}
+
